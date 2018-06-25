@@ -83,8 +83,10 @@ class Telescope(Throughputs):
         bandpass=Bandpass(wavelen=filtre_trans.wavelen, sb=filtre_trans.sb)
 
         flatSedb = Sed()
+        
         flatSedb.setFlatSED(wavelen_min, wavelen_max, wavelen_step)
         flux0b=np.power(10.,-0.4*self.mag_sky[filtre])
+        
         flatSedb.multiplyFluxNorm(flux0b)
         photParams = PhotometricParameters(bandpass=filtre)
         norm=photParams.platescale**2/2.*photParams.exptime/photParams.gain
@@ -102,15 +104,15 @@ class Telescope(Throughputs):
         
         for filtre in self.filterlist:
             self.ZP_filtre(filtre)
-        #print 'zeropoints',self.data['zp'],self.data['counts_zp']
-        #self.data['zp']=dict(zip(['u','g','r','i','z','y'],[27.03,28.53,28.27,27.91,27.49,26.78]))
+        print('Telescope:ZP ==> zeropoints',self.data['zp'],self.data['counts_zp'])
+        self.data['zp']=dict(zip(['u','g','r','i','z','y'],[27.03,28.53,28.27,27.91,27.49,26.78]))
 
     def ZP_filtre(self,filtre):
 
         photParams=PhotometricParameters(bandpass=filtre)
         Diameter=2.*np.sqrt(photParams.effarea*1.e-4/np.pi) # diameter in meter
         Cte=3631.*np.pi*Diameter**2*2.*photParams.exptime/4/h/1.e36
-        #print('hello Cte',Cte,Diameter,h,photParams.exptime)
+        print('Telescope:ZP_filtre ==> hello Cte=',Cte,' Diam = ',Diameter,' h=',h,' exp=',photParams.exptime)
 
         self.data['Skyb'][filtre]=Cte*np.power(Diameter/6.5,2.)*np.power(2.*photParams.exptime/30.,2.)*np.power(photParams.platescale,2.)*np.power(10.,0.4*(25.-self.mag_sky[filtre]))*self.Sigmab[filtre]
             
@@ -126,7 +128,7 @@ class Telescope(Throughputs):
         photParams=PhotometricParameters(bandpass=filtre)
         counts = flatSed.calcADU(bandpass, photParams=photParams) #number of counts for exptime
         self.data['zp'][filtre]=mbZ
-        #print 'hello',counts/self.photParams.exptime
+        #print('hello',counts/self.photParams.exptime)
         self.data['counts_zp'][filtre]=counts/2.*photParams.exptime
 
     def Calc_Integ(self,bandpass):
@@ -162,7 +164,7 @@ class Telescope(Throughputs):
     def flux_to_mag(self, flux, band, zp=None):
         if zp is None:
             zp = self.zero_points(band)
-        #print 'zp',zp,band
+        print ('zp',zp,band)
         m = -2.5 * np.log10(flux) + zp
         return m
 
