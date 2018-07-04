@@ -28,10 +28,12 @@ class Telescope(Throughputs):
 
         self.Load_Atmosphere(airmass)
         self.sed=None
+        self.sedAB0=None
         
         self.Inputs()
         self.Sky()
         self.ZP()
+        self.Set_SED_AB0()  # set a AB reference source
         
     #-------------------------------------------------------------------------    
     @property
@@ -220,18 +222,116 @@ class Telescope(Throughputs):
        
         for i,band in enumerate(self.filterlist):
             filter=self.lsst_atmos[band]
+            #phinorm=filter.sbTophi()
             # resample the wavelength each time for the filter
             wl,fnu=self.sed.getSED_fnu()
             wavelen, fnu = self.sed.resampleSED(wl, fnu, wavelen_match=filter.wavelen)
             fnu=np.nan_to_num(fnu)  # SDC(29/06/18) reset to 0 out of band where there are nan
             
             self.sed=Sed(wavelen=wavelen,fnu=fnu,name=self.sed.name)
-            mag1=self.sed.calcMag(filter) # gives nan or does not work
-            mag2=self.Calc_Integ_Sed(self.sed,filter)
+            mag1=self.sed.calcMag(bandpass=filter) # Does not the multiplication by filter transm ??
+            mag2=-2.5*np.log10(self.Calc_Integ_Sed(self.sed,filter))
+            mag2=-2.5*np.log10(self.Calc_Integ_Sed(self.sed,filter))
             all_mag1.append(mag1)
             all_mag2.append(mag2)
             print('CalcMyMagnitudes :: band = {}, mag1= {} , mag2= {}'.format(i,mag1,mag2))
         return np.array(all_mag1), np.array(all_mag2)
+
+    #---------------------------------------------------------------
+    def CalcMyZP(self):
+        """
+        CalcMyZP()
+        Try to calculate a ZP
+        """   
+       
+        for i,band in enumerate(self.filterlist):
+        #for filtre in self.filterlist:
+            filtre=self.lsst_atmos[band]
+            
+            # parameters
+            photParams = PhotometricParameters(bandpass=band)
+            Diameter=2.*np.sqrt(photParams.effarea*1.e-4/np.pi) # diameter in meter
+            exptime=2*photParams.exptime
+        
+            # lsst sim calculation
+            zp1=filtre.calcZP_t(photParams)
+            
+            # my calculation
+            f0=self.Calc_Integ_Sed(self.sedAB0,filtre)
+            zp2=-2.5*np.log10(f0)
+            
+            print("CalcMyZP :: band = {}, zp1 = {}, zp2= {}, deltazp= {}".format(i,zp1,zp2,zp1-zp2))
+           
+    #---------------------------------------------------------------
+    def CalcMyABMagnitudes(self):
+        """
+        CalcMyABMagnitudes(sed)
+        Sylvie plays inside this function
+        """
+       
+        all_magAB=[]
+       
+       
+        for i,band in enumerate(self.filterlist):
+            filter=self.lsst_atmos[band]
+            
+            # resample the wavelength each time for the filter
+            wl,fnu=self.sed.getSED_fnu()
+            wavelen, fnu = self.sed.resampleSED(wl, fnu, wavelen_match=filter.wavelen)
+            fnu=np.nan_to_num(fnu)  # SDC(29/06/18) reset to 0 out of band where there are nan
+            
+            self.sed=Sed(wavelen=wavelen,fnu=fnu,name=self.sed.name)
+            
+            mag1=-2.5*np.log10(self.Calc_Integ_Sed(self.sed,filter))
+            mag2=-2.5*np.log10(self.Calc_Integ_Sed(self.sedAB0,filter))
+            all_magAB.append(mag1-mag2)
+
+            print('CalcMyABMagnitudes :: band = {}, mag1= {} , mag2= {}'.format(i,mag1,mag2))
+        return np.array(all_magAB)
+
+    #---------------------------------------------------------------
+    def CalcMyABMagnitudesErrors(self):
+        """
+        CalcMyABMagnitudesErrors(self)
+        """
+        all_magABErr=[]
+        
+        for i,band in enumerate(self.filterlist):
+           
+            
+            filtre_atm=self.lsst_atmos[band]
+            filtre_syst=self.lsst_system[band]
+            
+            wavelen_min, wavelen_max, wavelen_step=filtre_syst.getWavelenLimits(None,None,None)
+            
+            photParams = PhotometricParameters(bandpass=band)
+            FWHMeff=self.data['FWHMeff'][band]
+           
+            
+            # create a Flat sed S_nu from the sky brightness magnitude
+            skysed = Sed()
+            skysed.setFlatSED(wavelen_min, wavelen_max, wavelen_step)
+            flux0b=np.power(10.,-0.4*self.mag_sky[band])
+            skysed.multiplyFluxNorm(flux0b)
+                  
+            magerr=SignalToNoise.calcMagError_sed( \
+                self.sed,filtre_atm,skysed,filtre_syst,photParams,FWHMeff,verbose=False)
+                                    
+            all_magABErr.append(magerr)
+        return np.array(all_magABErr)        
+    
+            
+    #---------------------------------------------------------------
+    def Plot_Filter(self):
+        plt.figure(figsize=(5,4))
+        for i,band in enumerate(self.filterlist):
+            filter=self.lsst_atmos[band]
+            #phinorm=filter.sbTophi()
+            #print('phinorm',phinorm)
+            plt.plot(filter.wavelen, filter.sb, 'k:')
+            #plt.plot(filter.wavelen, phinorm, 'r.')
+        plt.show()
+    
     #-------------------------------------------------------------------------
     def flux_to_mag(self, flux, band, zp=None):
         if zp is None:
@@ -272,7 +372,25 @@ class Telescope(Throughputs):
         
         
         self.Set_SED(wavel=wavelength,newsed=S_lambda0,name='AB-source')
-       
+
+    #-------------------------------------------------------------------------
+    def Set_SED_AB0(self):
+        """
+        Set AB source :
+        Enter the SED in erg/cm2/s/nm,
+        """
+        
+        M0=48.6           # magnitude of a AB source
+        S_nu0=10**(-M0/2.5) # flux in erg/cm2/s/Hz : 3.630780547701003e-20
+        c=2.99792458e10    # speed of light in cm/s in CGS
+        nm_to_cm=1e-7      # conversion nm to cm 
+        wavelength=np.arange(300.,1151.,1)
+        S_lambda0=S_nu0*c/(nm_to_cm)/wavelength**2   # in erg/cm2/s/nm
+        
+        
+        self.sedAB0=Sed(wavelen=wavelength,flambda=S_lambda0,fnu=None,name='AB0-source')
+        self.sedAB0.flambdaTofnu()
+        
     #-------------------------------------------------------------------------
     def Set_SED(self,wavel,newsed,name='Pickles'):
         """
