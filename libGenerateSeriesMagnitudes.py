@@ -16,11 +16,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 import numpy as np
-import sys
 import os
 import pandas as pd
 
-
+import sys,getopt
 
 from astropy.io import fits
 
@@ -73,15 +72,16 @@ idx_res=0
 #---------------------------------------------------------
 def GetSEDData(filename):
      hdu = fits.open(filename)
+     #hdu.info()
      theheader=hdu[0].header
-     print(theheader)
+     #print(theheader)
      sidx_num=theheader['IDX_NUM']
      sidx_val=theheader['IDX_VAL']
      sidx_sed=theheader['IDX_SED']
      sidx_data=theheader['IDX_DATA']
      sidx_spec=theheader['IDX_SPEC']
 
-     return hdu[0].data
+     return hdu[0].data,sidx_num,sidx_val,sidx_sed,sidx_data,sidx_spec
 #---------------------------------------------------------
 def GetCadenceData(filename):     
     df=pd.read_csv(filename,index_col=False)
@@ -89,9 +89,9 @@ def GetCadenceData(filename):
 #-----------------------------------------------------------
 def GetAtmosphericTransparencyData(filename):
     hdu = fits.open(filename)    
-    hdu.info()
+    #hdu.info()
     theheader=hdu[0].header
-    print(theheader)
+    #print(theheader)
     idx_num=theheader['ID_NUM']
     idx_night=theheader['ID_NIGHT']
     idx_date=theheader['ID_DATE']
@@ -102,7 +102,9 @@ def GetAtmosphericTransparencyData(filename):
     idx_pwv=theheader['ID_PWV']
     idx_o3=theheader['ID_O3']
     idx_res=theheader['ID_RES']
-    return hdu[0].data
+    
+    
+    return hdu[0].data,idx_num,idx_night,idx_date,idx_am,idx_filt,idx_vaod,idx_pwv,idx_o3,idx_res
 #-------------------------------------------------------------
 def PlotAtmosphericTransmissionData(data):
     NBATM=data.shape[0]-1
@@ -126,23 +128,49 @@ def PlotSED(wl,flux):
     
 if __name__ == "__main__":
     
-   
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],"n:h",['n=','help'])
+    except getopt.GetoptError:
+        print(' Exception bad getopt with :: '+sys.argv[0]+ ' -n <pickles-number>')
+        sys.exit(2)
+        
+
+    snum=""
+    num=0
+    
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            print(sys.argv[0]+ ' -n <pickles-number>')
+            sys.exit(2)
+        elif opt in ('-n', '--num'):
+            snum = arg
+            num=int(snum)
+        else:
+            print(sys.argv[0]+ ' -n <pickles-number>')
+            sys.exit(2)
+ 
+    print("snum={} , num={} ".format(snum,num))
+    
+    
+
     # 1) Get SED file
-    sed_data=GetSEDData(sed_file)
+    sed_data,sidx_num,sidx_val,sidx_sed,sidx_data,sidx_spec=GetSEDData(sed_file)
+    NBSED=sed_data.shape[0]-1
 
 
     #2) Get Cadence file
     df=GetCadenceData(cadence_atm_program_file)    
-    df.head()
+    print(df.head())
     NBVISITS=len(df)
     print("Nb visits = {}".format(NBVISITS))
 
 
     #3) Atmospheric transparency data
-    atmdata=GetAtmosphericTransparencyData(atmospheric_file)
+    atmdata,idx_num,idx_night,idx_date,idx_am,idx_filt,idx_vaod,idx_pwv,idx_o3,idx_res=\
+    GetAtmosphericTransparencyData(atmospheric_file)
     NBATM=atmdata.shape[0]-1
 
-    PlotAtmosphericTransmissionData(atmdata)
+    #PlotAtmosphericTransmissionData(atmdata)
 
     am=atmdata[1:,idx_am] # airmass distribution
     filt=atmdata[1:,idx_filt] # filter distribution
@@ -153,27 +181,35 @@ if __name__ == "__main__":
 
      #4) Telescope
     tel=Telescope()
-    tel.Plot_Throughputs()
+    #tel.Plot_Throughputs()
 
 
 
     #5) Selection of Pickles
 
+        
     sidx=1
+    if num>=1 and num<NBSED:
+        sidx=num
+    else:
+        print("the number of SED must be such 1 < n < {}".format(NBSED))
+        sys.exit(2)
+    
     picklesname='Pickles {}'.format(sidx)
     picklesnum="{:06d}".format(sidx)
     output_file="magsim_pickles_{}.txt".format(picklesnum)
+    print("output file = {}".format(output_file))
 
-
+    #print("sidx_spec={}".format(sidx_spec))
     wl_sed=sed_data[0,sidx_spec:]/10.
-    flux_sed=sed_data[sidx+1,sidx_spec:]*10.
+    flux_sed=sed_data[sidx,sidx_spec:]*10.
+   
 
-
-    PlotSED(wl_sed,flux_sed)
+    #PlotSED(wl_sed,flux_sed)
 
 
     # set the telescope to use this SED
-    tel.Set_SED(wavel=wl_sed,newsed=flux_sed,name=picklename)
+    tel.Set_SED(wavel=wl_sed,newsed=flux_sed,name=picklesname)
 
 
     # MAIN LOOP ON VISITS
@@ -186,6 +222,7 @@ if __name__ == "__main__":
     all_filt_num=[]
     all_am=[]
     for visit in np.arange(NBVISITS):
+    #for visit in np.arange(10):
         idx=visit+1
     
         # from atmospheric simulation
@@ -232,4 +269,5 @@ if __name__ == "__main__":
 
     #save file
     np.savetxt(output_file,np.c_[all_am,all_filt_num,all_mag_adu,all_mag_err],header="airmass \t filter(1..6) \t instrum-mag (ADU) \t error-mag")
+    print("output file = {} saved ".format(output_file))
 

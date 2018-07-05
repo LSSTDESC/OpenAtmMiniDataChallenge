@@ -139,7 +139,7 @@ class Telescope(Throughputs):
         # What is the meaning of this Cte ????
         # especcialy what is 1e36 ?
         Cte=3631.*np.pi*Diameter**2*2.*photParams.exptime/4/h/1.e36
-        print('Telescope::ZP_filtre: hello Cte=',Cte, ' Diam=',Diameter, 'h=',h,' exptime=',photParams.exptime)
+        #print('Telescope::ZP_filtre: hello Cte=',Cte, ' Diam=',Diameter, 'h=',h,' exptime=',photParams.exptime)
         
         # What is the meaning of Skyb ?????
         self.data['Skyb'][filtre]=Cte*np.power(Diameter/6.5,2.)*np.power(2.*photParams.exptime/30.,2.)*np.power(photParams.platescale,2.)*np.power(10.,0.4*(25.-self.mag_sky[filtre]))*self.Sigmab[filtre]

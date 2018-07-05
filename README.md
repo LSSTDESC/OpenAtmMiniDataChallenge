@@ -34,6 +34,14 @@ I have modified these classes for my simulation purpose.
 Telescope class		
 ### ***MyThroughputs.py***
 Throughput class
+
+## ipython console
+
+run libGenerateSeriesMagnitudes -n 3
+
+## shell
+
+python libGenerateSeriesMagnitudes -n 3
 						
 -----------------------
 
