@@ -178,6 +178,7 @@ if __name__ == "__main__":
     pwv=atmdata[1:,idx_pwv] # pwv distribution
     o3=atmdata[1:,idx_o3] # o3 distribution
 
+   
 
      #4) Telescope
     tel=Telescope()
@@ -197,8 +198,10 @@ if __name__ == "__main__":
     
     picklesname='Pickles {}'.format(sidx)
     picklesnum="{:06d}".format(sidx)
-    output_file="magsim_pickles_{}.txt".format(picklesnum)
-    print("output file = {}".format(output_file))
+    output_file1="magsim_pickles_{}.txt".format(picklesnum)
+    output_file2="info_magsim_pickles_{}.txt".format(picklesnum)
+    
+    print("output files = {}, {}".format(output_file1,output_file2))
 
     #print("sidx_spec={}".format(sidx_spec))
     wl_sed=sed_data[0,sidx_spec:]/10.
@@ -221,6 +224,12 @@ if __name__ == "__main__":
     all_mag_err=[]
     all_filt_num=[]
     all_am=[]
+    
+    all_vaod=[]
+    all_o3=[]
+    all_pwv=[]
+    all_clouds=[]
+    
     for visit in np.arange(NBVISITS):
     #for visit in np.arange(10):
         idx=visit+1
@@ -230,7 +239,10 @@ if __name__ == "__main__":
         wl=atmdata[0,idx_res:]
         tr=atmdata[idx,idx_res:]
     
-    
+        am2=atmdata[idx,idx_am] 
+        vaod=atmdata[idx,idx_vaod] 
+        o3=atmdata[idx,idx_o3] 
+        pwv=atmdata[idx,idx_pwv] 
     
         #decode cadence
         data_series=df.iloc[visit]
@@ -241,7 +253,13 @@ if __name__ == "__main__":
         transparency=1.-data_series["transparency"]
         FWHMgeom=data_series["finseeing"]
     
-
+        #print("am = {} , am2= {} , vaod = {} , o3 = {} , pwv = {} ,cloud = {}".format(am,am2,vaod,o3,pwv,transparency))
+        
+        all_vaod.append(vaod)
+        all_o3.append(o3)
+        all_pwv.append(pwv)
+        all_clouds.append(transparency)
+        
         tr_res=transparency*tr   # cloud effect
     
         #print("filter={}  skybrightness={}  FWHMGeom= {}   transparency= {}".format(filter_band,skybrightness,FWHMgeom,transparency))
@@ -265,9 +283,19 @@ if __name__ == "__main__":
     all_mag_err=np.array(all_mag_err)
     all_filt_num=np.array(all_filt_num)
     all_am=np.array(all_am)
+    
+    all_vaod=np.array(all_vaod)
+    all_o3=np.array(all_o3)
+    all_pwv=np.array(all_pwv)
+    all_clouds=np.array(all_clouds)
 
 
-    #save file
-    np.savetxt(output_file,np.c_[all_am,all_filt_num,all_mag_adu,all_mag_err],header="airmass \t filter(1..6) \t instrum-mag (ADU) \t error-mag")
-    print("output file = {} saved ".format(output_file))
+    #save files
+    np.savetxt(output_file1,np.c_[all_am,all_filt_num,all_mag_adu,all_mag_err],header="airmass \t filter(1..6) \t instrum-mag (ADU) \t error-mag")
+    print("output file = {} saved ".format(output_file1))
+    array_for_output2=np.c_[all_am,all_filt_num,all_vaod,all_o3,all_pwv,all_clouds,all_mag_adu,all_mag_err]
+    header2="airmass \t filter(1..6) \t vaod \t o3 \t pwv \t clouds \t instrum-mag (ADU) \t error-mag"
+        
+    np.savetxt(output_file2,array_for_output2,header=header2)
+    print("output file = {} saved ".format(output_file2))
 
