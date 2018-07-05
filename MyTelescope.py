@@ -86,6 +86,7 @@ class Telescope(Throughputs):
         Calc_m5(filtre):
         
         Compute m5 or SNR at five sigma
+        Tool function implemented by Phillie Gris (IN2P3)
         
         """
         # get telescope passband (no atmosphere)
@@ -125,6 +126,8 @@ class Telescope(Throughputs):
         """
         ZP_filtre() : Compute zero point in filter band
         - platescale is 0.2 arcsec per pixel
+        
+        Tool function implemented by Phillie Gris (IN2P3)
         
         """
         # extract parameters from lsst_sims
@@ -166,6 +169,10 @@ class Telescope(Throughputs):
         Compute sum  F(lambda).dlambda/lambda in band (no unit)
              - F(lamba) : pass band
              - lambda   : wavelength
+             
+             
+        Tool function implemented by Phillie Gris (IN2P3)
+          
         """
         resu=0.
         dlam=0
@@ -187,7 +194,8 @@ class Telescope(Throughputs):
              - F(lamba) : pass band
              - lambda   : wavelength
              - force to use the SED S_nu (erg/cm2/s/Hz) instead of S_lamba (erg/cm2/s/nm)
-        
+             
+        Tool function implemented by Phillie Gris (IN2P3)
         """
       
         use_self = sed._checkUseSelf(wavelen, fnu)
@@ -214,7 +222,15 @@ class Telescope(Throughputs):
     def CalcMyMagnitudes(self):
         """
         CalcMyMagnitudes(sed)
-        Sylvie plays inside this function
+        
+        - author : Sylvie Dagoret-Campagne
+        - affiliation : LAL/IN2P3/CNRS/FRANCE
+        - date   : July 4th 2018
+        
+        Check how LSST Sim compute the magnitudes.
+        Compute here with self.Calc_Integ_Sed() and Sed.calcMag()
+        Used just for debug purpose
+        
         """
         all_mag1=[]
         all_mag2=[]
@@ -229,7 +245,7 @@ class Telescope(Throughputs):
             fnu=np.nan_to_num(fnu)  # SDC(29/06/18) reset to 0 out of band where there are nan
             
             self.sed=Sed(wavelen=wavelen,fnu=fnu,name=self.sed.name)
-            mag1=self.sed.calcMag(bandpass=filter,wavelen=wavelen,fnu=fnu) # Does not the multiplication by filter transm ??
+            mag1=self.sed.calcMag(bandpass=filter,wavelen=wavelen,fnu=fnu) 
             mag2=-2.5*np.log10(self.Calc_Integ_Sed(self.sed,filter))
             all_mag1.append(mag1)
             all_mag2.append(mag2)
@@ -240,7 +256,14 @@ class Telescope(Throughputs):
     def CalcMyZP(self):
         """
         CalcMyZP()
-        Try to calculate a ZP
+        
+        - author : Sylvie Dagoret-Campagne
+        - affiliation : LAL/IN2P3/CNRS/FRANCE
+        - date   : July 5th 2018
+        
+        Calculate the Zero Points for all bands.
+        
+        This calculation should assume 1 second exposure and unit electronic gain
         """   
        
         for i,band in enumerate(self.filterlist):
@@ -274,6 +297,12 @@ class Telescope(Throughputs):
     def CalcMyPhElMagnitudes(self):
         """
         CalcMyElectronagnitudes(sed)
+        
+        - author : Sylvie Dagoret-Campagne
+        - affiliation : LAL/IN2P3/CNRS/FRANCE
+        - date   : July 5th 2018
+        
+        Calculate the instrumental magnitude (Photoelectrn unit) for all bands.
         
         """
        
@@ -318,6 +347,13 @@ class Telescope(Throughputs):
         """
         CalcMyADUMagnitudes(sed)
         
+        - author : Sylvie Dagoret-Campagne
+        - affiliation : LAL/IN2P3/CNRS/FRANCE
+        - date   : July 5th 2018
+        
+        Calculate the instrumental magnitude (ADU unit) for all bands.
+        
+        
         """
        
         all_magADU=[]
@@ -360,12 +396,65 @@ class Telescope(Throughputs):
             all_magADU.append(mag_ADU)
             
         return np.array(all_magADU)
+    #---------------------------------------------------------------
+    def CalcMyADUMagnitude_filter(self,band):
+        """
+        CalcMyADUMagnitude_filter(band)
+        
+        - author : Sylvie Dagoret-Campagne
+        - affiliation : LAL/IN2P3/CNRS/FRANCE
+        - date   : July 5th 2018
+        
+        Calculate the instrumental magnitude (ADU unit) for one band.
+        
+        """
+       
+        filter=self.lsst_atmos[band]
+            
+        #typical parameters of the band
+        photParams = PhotometricParameters(bandpass=band)
+        Diameter=2.*np.sqrt(photParams.effarea*1.e-4/np.pi) # diameter in meter
+        exptime=2*photParams.exptime
+        gain=photParams.gain
+            
+            
+        # resample the wavelength each time for the filter
+        wl,fnu=self.sed.getSED_fnu()
+        wavelen, fnu = self.sed.resampleSED(wl, fnu, wavelen_match=filter.wavelen)
+        fnu=np.nan_to_num(fnu)  # SDC(29/06/18) reset to 0 out of band where there are nan
+            
+        #this SED_nu is now in Jansky, units of 10-23 erg/cm2/s/Hz
+        # 1 erg=10-7 J
+        # 1 cm^-2 = 10^4 m^-2
+        # we have to multiply the SED_nu by 10-26 to be in J/m2/s/Hz
+        self.sed=Sed(wavelen=wavelen,fnu=fnu,name=self.sed.name)
+            
+            
+        # in Jansky divided by J (photon energy E=hc/lambda)
+        Snu_Tl_dldivl=self.Calc_Integ_Sed(self.sed,filter)
+            
+        # in photoelectron per meter squared per meters per second
+        # h is the Planck constant h=6.626x 10^-34 J.s
+        dN_ADU=Snu_Tl_dldivl/h*1e-26*np.pi*Diameter**2/4.*exptime/gain
+
+        mag_ADU=-2.5*np.log10(dN_ADU)
+        mag_ADU2=-2.5*np.log10(self.sed.calcADU(bandpass=filter,photParams=photParams,wavelen=wavelen,fnu=fnu))
+            
+        #print('CalcMyADUMagnitude_filter :: band = {}, mag1(me)= {}, mag2(lsst_sim)={}, deltaM={}'.format(band,mag_ADU,mag_ADU2,mag_ADU-mag_ADU2))
+                    
+        return mag_ADU
+    
     
     #---------------------------------------------------------------------
     def CalcMyABMagnitudes(self):
         """
-        CalcMyABMagnitudes(sed)
-        Sylvie plays inside this function
+        CalcMyABMagnitudes()
+        
+        - author : Sylvie Dagoret-Campagne
+        - affiliation : LAL/IN2P3/CNRS/FRANCE
+        - date   : July 4th 2018
+        
+        Calculate the magnitude in AB system unit for all bands.
         """
        
         all_magAB=[]
@@ -388,7 +477,7 @@ class Telescope(Throughputs):
             
             mag3=self.sed.calcMag(bandpass=filter,wavelen=wavelen,fnu=fnu)
             
-            print('CalcMyABMagnitudes :: band = {}, mag1= {} , mag2= {}, deltaM={}, mag3={}'.format(i,mag1,mag2,mag1-mag2,mag3))
+            print('CalcMyABMagnitudes :: band = {}, mag1={} , mag2={} , deltaM(me)={}, mag3(lsst)={}'.format(i,mag1,mag2,mag1-mag2,mag3))
         return np.array(all_magAB)
     
     
@@ -396,6 +485,13 @@ class Telescope(Throughputs):
     def CalcMyABMagnitudesErrors(self):
         """
         CalcMyABMagnitudesErrors(self)
+        
+        - author : Sylvie Dagoret-Campagne
+        - affiliation : LAL/IN2P3/CNRS/FRANCE
+        - date   : July 4th 2018
+        
+        Calculate magnitude errors for all bands
+        
         """
         all_magABErr=[]
         
@@ -417,12 +513,50 @@ class Telescope(Throughputs):
             flux0b=np.power(10.,-0.4*self.mag_sky[band])
             skysed.multiplyFluxNorm(flux0b)
                   
+            #calcMagError filled according doc    
             magerr=SignalToNoise.calcMagError_sed( \
                 self.sed,filtre_atm,skysed,filtre_syst,photParams,FWHMeff,verbose=False)
                                     
             all_magABErr.append(magerr)
         return np.array(all_magABErr)        
-    
+    #---------------------------------------------------------------
+    def CalcMyABMagnitudesError_filter(self,band,SkyBrightnessMag,FWHMGeom):
+        """
+        CalcMyABMagnitudesError_filter(self,band,SkyBrightnessMag,FWHMGeom)
+        
+        - author : Sylvie Dagoret-Campagne
+        - affiliation : LAL/IN2P3/CNRS/FRANCE
+        - date   : July 5th 2018
+        
+        Calculate magnitude errors for one band.
+        
+        Input args:
+        - band : filter band
+        - SkyBrighnessMag : Sky Brighness Magnitude in the band
+        - FWHMGeom : Geometrical PSF in the band
+        
+        """      
+            
+        filtre_atm=self.lsst_atmos[band]
+        filtre_syst=self.lsst_system[band]
+            
+        wavelen_min, wavelen_max, wavelen_step=filtre_syst.getWavelenLimits(None,None,None)
+       
+        #calculation of effective PSF
+        FWHMeff=SignalToNoise.FWHMgeom2FWHMeff(FWHMGeom)
+        
+        photParams = PhotometricParameters(bandpass=band)
+       
+        # create a Flat sed S_nu from the sky brightness magnitude
+        skysed = Sed()
+        skysed.setFlatSED(wavelen_min, wavelen_max, wavelen_step)
+        flux0b=np.power(10.,-0.4*SkyBrightnessMag)
+        skysed.multiplyFluxNorm(flux0b)
+                  
+        #calcMagError filled according doc    
+        mag_err=SignalToNoise.calcMagError_sed(self.sed,filtre_atm,skysed,filtre_syst,photParams,FWHMeff,verbose=False)
+                                    
+        return mag_err         
             
     #---------------------------------------------------------------
     def Plot_Filter(self):

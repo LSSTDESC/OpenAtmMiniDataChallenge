@@ -60,6 +60,7 @@ class Throughputs(object):
         
         self.filterlist = params['filterlist']
         self.filtercolors = {'u':'b', 'g':'c', 'r':'g', 'i':'y', 'z':'r', 'y':'m'}
+        self.filternum = {'u':1, 'g':2, 'r':3, 'i':4, 'z':5, 'y':6}
 
         self.lsst_std = {}
         self.lsst_system = {}
@@ -220,6 +221,7 @@ class Throughputs(object):
         plt.ylabel('Sb (0-1)')
         plt.title('System throughput')
         plt.grid(True)
+        plt.ylim(0.,1.)
         plt.show()
     #-------------------------------------------------------------------------
     def Plot_DarkSky(self):
