@@ -251,15 +251,24 @@ class Telescope(Throughputs):
             photParams = PhotometricParameters(bandpass=band)
             Diameter=2.*np.sqrt(photParams.effarea*1.e-4/np.pi) # diameter in meter
             exptime=2*photParams.exptime
-        
+            gain=photParams.gain
+            
             # lsst sim calculation
-            zp1=filtre.calcZP_t(photParams)
+            # by definition Zero point is defined for unit gain and unit exposure
+            zp1=filtre.calcZP_t(photParams)+2.5*np.log10(gain/exptime)
             
-            # my calculation
-            f0=self.Calc_Integ_Sed(self.sedAB0,filtre)
-            zp2=-2.5*np.log10(f0)
+            # my calculation : Zero point should be calculated for unit gain and per second of exposure
+    
+            # in Jansky divided by J (photon energy E=hc/lambda)
+            Snu_Tl_dldivl_AB0=self.Calc_Integ_Sed(self.sedAB0,filtre)
             
-            print("CalcMyZP :: band = {}, zp1 = {}, zp2= {}, deltazp= {}".format(i,zp1,zp2,zp1-zp2))
+            # in photoelectron per meter squared per meters per second
+            # h is the Planck constant h=6.626x 10^-34 J.s
+            dN_PhEl_AB0=Snu_Tl_dldivl_AB0/h*1e-26*np.pi*Diameter**2/4.
+            
+            zp2=+2.5*np.log10(dN_PhEl_AB0)
+            
+            print("CalcMyZP :: band = {}, zp1(lsst_sim) = {}, zp2(me)= {}, deltaZP= {}".format(i,zp1,zp2,zp1-zp2))
            
     #---------------------------------------------------------------
     def CalcMyPhElMagnitudes(self):
