@@ -291,11 +291,12 @@ if __name__ == "__main__":
 
 
     #save files
-    np.savetxt(output_file1,np.c_[all_am,all_filt_num,all_mag_adu,all_mag_err],header="airmass \t filter(1..6) \t instrum-mag (ADU) \t error-mag")
+    fmt1='%1.4f %d %1.4e %1.4e' 
+    np.savetxt(output_file1,np.c_[all_am,all_filt_num,all_mag_adu,all_mag_err],header="airmass \t filter(1..6) \t instrum-mag (ADU) \t error-mag",fmt=fmt1)
     print("output file = {} saved ".format(output_file1))
     array_for_output2=np.c_[all_am,all_filt_num,all_vaod,all_o3,all_pwv,all_clouds,all_mag_adu,all_mag_err]
     header2="airmass \t filter(1..6) \t vaod \t o3 \t pwv \t clouds \t instrum-mag (ADU) \t error-mag"
-        
-    np.savetxt(output_file2,array_for_output2,header=header2)
+    fmt2='%1.4f %d %6.3f %6.3f %6.3f %6.3f %1.4e %1.4e'     
+    np.savetxt(output_file2,array_for_output2,header=header2,fmt=fmt2)
     print("output file = {} saved ".format(output_file2))
 
