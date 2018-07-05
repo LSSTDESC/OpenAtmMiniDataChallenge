@@ -229,8 +229,7 @@ class Telescope(Throughputs):
             fnu=np.nan_to_num(fnu)  # SDC(29/06/18) reset to 0 out of band where there are nan
             
             self.sed=Sed(wavelen=wavelen,fnu=fnu,name=self.sed.name)
-            mag1=self.sed.calcMag(bandpass=filter) # Does not the multiplication by filter transm ??
-            mag2=-2.5*np.log10(self.Calc_Integ_Sed(self.sed,filter))
+            mag1=self.sed.calcMag(bandpass=filter,wavelen=wavelen,fnu=fnu) # Does not the multiplication by filter transm ??
             mag2=-2.5*np.log10(self.Calc_Integ_Sed(self.sed,filter))
             all_mag1.append(mag1)
             all_mag2.append(mag2)
@@ -263,6 +262,97 @@ class Telescope(Throughputs):
             print("CalcMyZP :: band = {}, zp1 = {}, zp2= {}, deltazp= {}".format(i,zp1,zp2,zp1-zp2))
            
     #---------------------------------------------------------------
+    def CalcMyPhElMagnitudes(self):
+        """
+        CalcMyElectronagnitudes(sed)
+        
+        """
+       
+        all_magPhEl=[]
+       
+       
+        for i,band in enumerate(self.filterlist):
+            filter=self.lsst_atmos[band]
+            
+            #typical parameters of the band
+            photParams = PhotometricParameters(bandpass=band)
+            Diameter=2.*np.sqrt(photParams.effarea*1.e-4/np.pi) # diameter in meter
+            exptime=2*photParams.exptime
+            
+            
+            # resample the wavelength each time for the filter
+            wl,fnu=self.sed.getSED_fnu()
+            wavelen, fnu = self.sed.resampleSED(wl, fnu, wavelen_match=filter.wavelen)
+            fnu=np.nan_to_num(fnu)  # SDC(29/06/18) reset to 0 out of band where there are nan
+            
+            #this SED_nu is now in Jansky, units of 10-23 erg/cm2/s/Hz
+            # 1 erg=10-7 J
+            # 1 cm^-2 = 10^4 m^-2
+            # we have to multiply the SED_nu by 10-26 to be in J/m2/s/Hz
+            self.sed=Sed(wavelen=wavelen,fnu=fnu,name=self.sed.name)
+            
+            # in Jansky divided by J (photon energy E=hc/lambda)
+            Snu_Tl_dldivl=self.Calc_Integ_Sed(self.sed,filter)
+            
+            # in photoelectron per meter squared per meters per second
+            # h is the Planck constant h=6.626x 10^-34 J.s
+            dN_el=Snu_Tl_dldivl/h*1e-26*np.pi*Diameter**2/4.*exptime
+
+            mag_el=-2.5*np.log10(dN_el)
+            print('CalcMyPhElMagnitudes :: band = {}, mag= {}'.format(i,mag_el))
+            
+            all_magPhEl.append(mag_el)
+            
+        return np.array(all_magPhEl)
+    #---------------------------------------------------------------
+    def CalcMyADUMagnitudes(self):
+        """
+        CalcMyADUMagnitudes(sed)
+        
+        """
+       
+        all_magADU=[]
+       
+       
+        for i,band in enumerate(self.filterlist):
+            filter=self.lsst_atmos[band]
+            
+            #typical parameters of the band
+            photParams = PhotometricParameters(bandpass=band)
+            Diameter=2.*np.sqrt(photParams.effarea*1.e-4/np.pi) # diameter in meter
+            exptime=2*photParams.exptime
+            gain=photParams.gain
+            
+            
+            # resample the wavelength each time for the filter
+            wl,fnu=self.sed.getSED_fnu()
+            wavelen, fnu = self.sed.resampleSED(wl, fnu, wavelen_match=filter.wavelen)
+            fnu=np.nan_to_num(fnu)  # SDC(29/06/18) reset to 0 out of band where there are nan
+            
+            #this SED_nu is now in Jansky, units of 10-23 erg/cm2/s/Hz
+            # 1 erg=10-7 J
+            # 1 cm^-2 = 10^4 m^-2
+            # we have to multiply the SED_nu by 10-26 to be in J/m2/s/Hz
+            self.sed=Sed(wavelen=wavelen,fnu=fnu,name=self.sed.name)
+            
+            
+            # in Jansky divided by J (photon energy E=hc/lambda)
+            Snu_Tl_dldivl=self.Calc_Integ_Sed(self.sed,filter)
+            
+            # in photoelectron per meter squared per meters per second
+            # h is the Planck constant h=6.626x 10^-34 J.s
+            dN_ADU=Snu_Tl_dldivl/h*1e-26*np.pi*Diameter**2/4.*exptime/gain
+
+            mag_ADU=-2.5*np.log10(dN_ADU)
+            mag_ADU2=-2.5*np.log10(self.sed.calcADU(bandpass=filter,photParams=photParams,wavelen=wavelen,fnu=fnu))
+            
+            print('CalcMyADUMagnitudes :: band = {}, mag1= {}, mag2={}, deltaM={}'.format(i,mag_ADU,mag_ADU2,mag_ADU-mag_ADU2))
+            
+            all_magADU.append(mag_ADU)
+            
+        return np.array(all_magADU)
+    
+    #---------------------------------------------------------------------
     def CalcMyABMagnitudes(self):
         """
         CalcMyABMagnitudes(sed)
@@ -286,9 +376,13 @@ class Telescope(Throughputs):
             mag2=-2.5*np.log10(self.Calc_Integ_Sed(self.sedAB0,filter))
             all_magAB.append(mag1-mag2)
 
-            print('CalcMyABMagnitudes :: band = {}, mag1= {} , mag2= {}'.format(i,mag1,mag2))
+            
+            mag3=self.sed.calcMag(bandpass=filter,wavelen=wavelen,fnu=fnu)
+            
+            print('CalcMyABMagnitudes :: band = {}, mag1= {} , mag2= {}, deltaM={}, mag3={}'.format(i,mag1,mag2,mag1-mag2,mag3))
         return np.array(all_magAB)
-
+    
+    
     #---------------------------------------------------------------
     def CalcMyABMagnitudesErrors(self):
         """
