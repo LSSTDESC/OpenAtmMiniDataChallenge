@@ -67,6 +67,7 @@ idx_filt=0
 idx_vaod=0
 idx_pwv=0
 idx_o3=0
+idx_cld=0
 idx_res=0
 
 #---------------------------------------------------------
@@ -101,10 +102,11 @@ def GetAtmosphericTransparencyData(filename):
     idx_vaod=theheader['ID_VAOD']
     idx_pwv=theheader['ID_PWV']
     idx_o3=theheader['ID_O3']
+    idx_cld=theheader['ID_CLD']
     idx_res=theheader['ID_RES']
     
     
-    return hdu[0].data,idx_num,idx_night,idx_date,idx_am,idx_filt,idx_vaod,idx_pwv,idx_o3,idx_res
+    return hdu[0].data,idx_num,idx_night,idx_date,idx_am,idx_filt,idx_vaod,idx_pwv,idx_o3,idx_cld,idx_res
 #-------------------------------------------------------------
 def PlotAtmosphericTransmissionData(data):
     NBATM=data.shape[0]-1
@@ -166,9 +168,10 @@ if __name__ == "__main__":
 
 
     #3) Atmospheric transparency data
-    atmdata,idx_num,idx_night,idx_date,idx_am,idx_filt,idx_vaod,idx_pwv,idx_o3,idx_res=\
+    atmdata,idx_num,idx_night,idx_date,idx_am,idx_filt,idx_vaod,idx_pwv,idx_o3,idx_cld,idx_res=\
     GetAtmosphericTransparencyData(atmospheric_file)
     NBATM=atmdata.shape[0]-1
+
 
     #PlotAtmosphericTransmissionData(atmdata)
 
@@ -177,6 +180,8 @@ if __name__ == "__main__":
     vaod=atmdata[1:,idx_vaod] # aerosols distribution
     pwv=atmdata[1:,idx_pwv] # pwv distribution
     o3=atmdata[1:,idx_o3] # o3 distribution
+    cld=atmdata[1:,idx_cld] # cld distribution
+    min_od=cld.min()
 
    
 
@@ -243,6 +248,7 @@ if __name__ == "__main__":
         vaod=atmdata[idx,idx_vaod] 
         o3=atmdata[idx,idx_o3] 
         pwv=atmdata[idx,idx_pwv] 
+        cld=atmdata[idx,idx_cld] # cld distribution
     
         #decode cadence
         data_series=df.iloc[visit]
@@ -258,9 +264,13 @@ if __name__ == "__main__":
         all_vaod.append(vaod)
         all_o3.append(o3)
         all_pwv.append(pwv)
-        all_clouds.append(transparency)
         
-        tr_res=transparency*tr   # cloud effect
+        
+        newtransparency=np.exp(-(cld-min_od)/100.)
+        
+        all_clouds.append(newtransparency)
+        
+        tr_res=newtransparency*tr   # cloud effect
     
         #print("filter={}  skybrightness={}  FWHMGeom= {}   transparency= {}".format(filter_band,skybrightness,FWHMgeom,transparency))
     
@@ -291,12 +301,12 @@ if __name__ == "__main__":
 
 
     #save files
-    fmt1='%1.4f %d %1.4e %1.4e' 
+    fmt1='%1.4f %d %8.5f %8.5f' 
     np.savetxt(output_file1,np.c_[all_am,all_filt_num,all_mag_adu,all_mag_err],header="airmass \t filter(1..6) \t instrum-mag (ADU) \t error-mag",fmt=fmt1)
     print("output file = {} saved ".format(output_file1))
     array_for_output2=np.c_[all_am,all_filt_num,all_vaod,all_o3,all_pwv,all_clouds,all_mag_adu,all_mag_err]
     header2="airmass \t filter(1..6) \t vaod \t o3 \t pwv \t clouds \t instrum-mag (ADU) \t error-mag"
-    fmt2='%1.4f %d %6.3f %6.3f %6.3f %6.3f %1.4e %1.4e'     
+    fmt2='%1.4f %d %6.3f %6.3f %6.3f %6.3f %8.5f %8.5f'     
     np.savetxt(output_file2,array_for_output2,header=header2,fmt=fmt2)
     print("output file = {} saved ".format(output_file2))
 
