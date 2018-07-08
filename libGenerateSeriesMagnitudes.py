@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 import numpy as np
-import os
+import os,sys
 import pandas as pd
 
 import sys,getopt
@@ -45,7 +45,7 @@ from MyThroughputs import *
 #---------------------------------------------------------
 # Definition of SED files
 # - Picles in units erg/cm2/s/nm
-sed_file="regenerated_sedgrid_pickle_uvi.fits"
+sed_file="regenerated_sedgrid_pickle_uvk.fits"
 
 sidx_num=0
 sidx_val=0
@@ -69,7 +69,8 @@ idx_pwv=0
 idx_o3=0
 idx_cld=0
 idx_res=0
-
+#---------------------------------------------------------
+output_dir="/sps/lsst/data/PCWG_MiniDataChallenge/pickles_uvk/2018-07-08"
 #---------------------------------------------------------
 def GetSEDData(filename):
      hdu = fits.open(filename)
@@ -203,11 +204,15 @@ if __name__ == "__main__":
     
     picklesname='Pickles {}'.format(sidx)
     picklesnum="{:06d}".format(sidx)
+    
     output_file1="magsim_pickles_{}.txt".format(picklesnum)
     output_file2="info_magsim_pickles_{}.txt".format(picklesnum)
     
     print("output files = {}, {}".format(output_file1,output_file2))
 
+    output_file1=os.path.join(output_dir,output_file1)
+    output_file2=os.path.join(output_dir,output_file2)
+    
     #print("sidx_spec={}".format(sidx_spec))
     wl_sed=sed_data[0,sidx_spec:]/10.
     flux_sed=sed_data[sidx,sidx_spec:]*10.
