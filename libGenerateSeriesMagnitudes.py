@@ -268,10 +268,22 @@ def entry(arg1):
         # calculate the magnitude and the error
         mag_adu=tel.CalcMyADUMagnitude_filter(filter_band)
         mag_err=tel.CalcMyABMagnitudesError_filter(filter_band,skybrightness,FWHMgeom)
+        
+        #randomize the magnitudes to take into account detector effect
+        fl_adu=np.power(10,-0.4*mag_adu)
+        sigma_fl=2.3/2.5*mag_err*fl_adu
+        
+        fl_rand = np.random.normal(fl_adu, sigma_fl,1)[0]
+        
+        while fl_rand<0:
+            fl_rand = np.random.normal(fl_adu, sigma_fl,1)[0]
+            
+        mag_rand=-2.5*np.log10(fl_rand)
 
         #print("filt={} : ADU = {}  +/- {}".format(filter_band,mag_adu,mag_err))
     
-        all_mag_adu.append(mag_adu)
+        #all_mag_adu.append(mag_adu)
+        all_mag_adu.append(mag_rand)
         all_mag_err.append(mag_err)
         all_filt_num.append(filternum)
         all_am.append(am)
