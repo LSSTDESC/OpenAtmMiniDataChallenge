@@ -57,7 +57,16 @@ to run it do
 
 Generate dataset of magnitudes and errors from first sed number 1 to last sed number 1000
 
-						
+## Compute AB magnitudes
+- ***libGenerateABMagnitudes.py
+
+python libGenerateABMagnitudes.py -n 2125
+	
+    
+or
+
+
+    
 -----------------------
 
 implemented for python3

@@ -6,7 +6,7 @@ import os
 
 import sys,getopt
 
-import libGenerateABMagnitudes.py
+import libGenerateABMagnitudes
 
 
 if __name__ == "__main__":
